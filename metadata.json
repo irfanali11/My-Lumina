@@ -1,0 +1,5 @@
+{
+  "name": "Lumina Task Manager",
+  "description": "A minimal, professional smart task manager featuring local storage persistence and AI-powered task enhancement using Gemini.",
+  "requestFramePermissions": []
+}
