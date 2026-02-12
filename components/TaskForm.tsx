@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Task, TaskStatus } from '../types';
+import { Task } from '../types';
 import Button from './Button';
 
 interface TaskFormProps {
@@ -29,45 +29,62 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSubmit, onCancel, initialData }) 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl border p-6 shadow-sm mb-6 animate-in fade-in slide-in-from-top-4 duration-300">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">
-        {initialData ? 'Edit Task' : 'New Task'}
-      </h2>
-      <div className="space-y-4">
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-          <input
-            id="title"
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
-            placeholder="e.g., Design the landing page"
-            required
-            autoFocus
-          />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <form 
+        onSubmit={handleSubmit} 
+        className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-2xl animate-in zoom-in-95 duration-300"
+      >
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+            {initialData ? 'Refine Task' : 'Capture New Task'}
+          </h2>
+          <button 
+            type="button" 
+            onClick={onCancel}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <div>
-          <label htmlFor="desc" className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
-          <textarea
-            id="desc"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none resize-none"
-            placeholder="What needs to be done?"
-          />
+
+        <div className="space-y-6">
+          <div>
+            <label htmlFor="title" className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Title</label>
+            <input
+              id="title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-5 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-transparent rounded-2xl focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 transition-all outline-none text-slate-900 dark:text-slate-100 font-medium placeholder-slate-400"
+              placeholder="What needs doing?"
+              required
+              autoFocus
+            />
+          </div>
+          <div>
+            <label htmlFor="desc" className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Details (Optional)</label>
+            <textarea
+              id="desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              className="w-full px-5 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-transparent rounded-2xl focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 transition-all outline-none resize-none text-slate-900 dark:text-slate-100 placeholder-slate-400 leading-relaxed"
+              placeholder="Context or steps..."
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button variant="secondary" type="button" onClick={onCancel} className="flex-1">
+              Discard
+            </Button>
+            <Button variant="primary" type="submit" className="flex-1">
+              {initialData ? 'Update Task' : 'Add to List'}
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2 justify-end pt-2">
-          <Button variant="ghost" type="button" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button variant="primary" type="submit">
-            {initialData ? 'Save Changes' : 'Add Task'}
-          </Button>
-        </div>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 };
 

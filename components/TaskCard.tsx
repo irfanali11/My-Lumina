@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Task, TaskStatus } from '../types';
 import Button from './Button';
-import { enhanceTaskDescription } from '../services/geminiService';
+import { enhanceTaskDescription, suggestSubtasks } from '../services/geminiService';
 
 interface TaskCardProps {
   task: Task;
@@ -14,11 +14,13 @@ interface TaskCardProps {
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, onToggleStatus, onDelete, onEdit, onUpdate }) => {
   const [isEnhancing, setIsEnhancing] = useState(false);
-  const [activeAction, setActiveAction] = useState<'enhance' | 'magic' | null>(null);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [activeAction, setActiveAction] = useState<'enhance' | 'magic' | 'suggest' | null>(null);
   const [proposedDescription, setProposedDescription] = useState<string | null>(null);
+  const [suggestedSteps, setSuggestedSteps] = useState<string[] | null>(null);
 
   const handleAIAction = async () => {
-    if (isEnhancing || !!proposedDescription) return;
+    if (isEnhancing || isSuggesting || !!proposedDescription) return;
     setIsEnhancing(true);
     setActiveAction('enhance');
     const enhanced = await enhanceTaskDescription(task.title, task.description);
@@ -28,12 +30,26 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onToggleStatus, onDelete, onE
   };
 
   const handleMagicWand = async () => {
-    if (isEnhancing || !!proposedDescription) return;
+    if (isEnhancing || isSuggesting || !!proposedDescription) return;
     setIsEnhancing(true);
     setActiveAction('magic');
     const enhanced = await enhanceTaskDescription(task.title, task.description);
     setProposedDescription(enhanced);
     setIsEnhancing(false);
+    setActiveAction(null);
+  };
+
+  const handleSuggestSteps = async () => {
+    if (isEnhancing || isSuggesting) return;
+    if (suggestedSteps) {
+      setSuggestedSteps(null);
+      return;
+    }
+    setIsSuggesting(true);
+    setActiveAction('suggest');
+    const steps = await suggestSubtasks(task.title);
+    setSuggestedSteps(steps);
+    setIsSuggesting(false);
     setActiveAction(null);
   };
 
@@ -49,46 +65,47 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onToggleStatus, onDelete, onE
   };
 
   const isCompleted = task.status === TaskStatus.COMPLETED;
-  const isBlocked = isEnhancing || !!proposedDescription;
+  const isBlocked = isEnhancing || isSuggesting || !!proposedDescription;
 
   return (
     <div 
-      className={`group bg-white rounded-xl border transition-all duration-300 p-4 shadow-sm hover:shadow-md ${
-        isCompleted ? 'bg-gray-50/50 grayscale-[0.5]' : ''
+      className={`group relative overflow-hidden bg-white dark:bg-slate-900 rounded-2xl border transition-all duration-300 p-5 shadow-sm hover:shadow-xl hover:-translate-y-1 ${
+        isCompleted ? 'border-transparent bg-slate-50 dark:bg-slate-900/50' : 'border-slate-200 dark:border-slate-800'
       } ${
-        proposedDescription ? 'border-indigo-300 ring-4 ring-indigo-50 bg-indigo-50/10' : 'border-gray-200'
+        proposedDescription ? 'border-indigo-400 ring-4 ring-indigo-50 dark:ring-indigo-900/20' : ''
       }`}
     >
       <div className="flex items-start gap-4">
+        {/* Animated Checkbox */}
         <button 
           onClick={() => !isBlocked && onToggleStatus(task.id)}
           disabled={isBlocked}
-          className={`mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+          className={`mt-1 flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${
             isCompleted 
-              ? 'bg-indigo-600 border-indigo-600 shadow-sm' 
+              ? 'bg-indigo-600 border-indigo-600 rotate-[360deg]' 
               : isBlocked 
-                ? 'border-gray-200 cursor-not-allowed bg-gray-50'
-                : 'border-gray-300 hover:border-indigo-500 hover:scale-105'
+                ? 'border-slate-200 dark:border-slate-800 cursor-not-allowed bg-slate-50 dark:bg-slate-800'
+                : 'border-slate-300 dark:border-slate-700 hover:border-indigo-500 hover:scale-110'
           }`}
         >
           {isCompleted && (
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4 text-white animate-in zoom-in duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
             </svg>
           )}
         </button>
         
-        <div className="flex-grow">
+        <div className="flex-grow min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <h3 className={`font-semibold text-gray-900 transition-all ${isCompleted ? 'line-through text-gray-400' : ''}`}>
+            <h3 className={`font-bold text-slate-900 dark:text-slate-100 transition-all duration-300 truncate ${isCompleted ? 'opacity-40 line-through' : ''}`}>
               {task.title}
             </h3>
-            <div className={`flex transition-opacity duration-200 ${isBlocked ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
+            <div className={`flex items-center gap-1 transition-opacity duration-300 ${isBlocked ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => onEdit(task)}
-                title="Edit task"
+                className="p-1 rounded-lg h-8 w-8"
                 disabled={isBlocked}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -99,8 +116,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onToggleStatus, onDelete, onE
                 variant="ghost" 
                 size="sm" 
                 onClick={() => onDelete(task.id)}
-                className="text-red-400 hover:text-red-600 hover:bg-red-50"
-                title="Delete task"
+                className="p-1 rounded-lg h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                 disabled={isBlocked}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -110,25 +126,25 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onToggleStatus, onDelete, onE
             </div>
           </div>
           
-          <p className={`mt-1 text-sm transition-colors ${isCompleted ? 'text-gray-400' : 'text-gray-600'}`}>
-            {task.description || "No description provided."}
+          <p className={`mt-1 text-sm leading-relaxed transition-all duration-300 ${isCompleted ? 'opacity-40' : 'text-slate-600 dark:text-slate-400'}`}>
+            {task.description || "Add a description to guide your work."}
           </p>
 
           {/* AI Enhancement Proposal UI */}
           {proposedDescription && (
-            <div className="mt-4 p-4 bg-white border border-indigo-200 rounded-xl shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl shadow-inner animate-in fade-in slide-in-from-top-2 duration-300">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-grow">
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
-                    <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">AI Suggestion</span>
+                    <span className="flex h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                    <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest block">AI Suggestion</span>
                   </div>
-                  <p className="text-sm text-gray-800 leading-relaxed italic font-medium">"{proposedDescription}"</p>
+                  <p className="text-sm text-indigo-900 dark:text-indigo-100 italic font-medium leading-relaxed">"{proposedDescription}"</p>
                 </div>
-                <div className="flex gap-2 flex-shrink-0">
+                <div className="flex gap-1.5 flex-shrink-0">
                   <button 
                     onClick={handleAcceptProposal}
-                    className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-sm hover:shadow active:scale-95"
+                    className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-sm active:scale-95"
                     title="Accept suggestion"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -137,7 +153,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onToggleStatus, onDelete, onE
                   </button>
                   <button 
                     onClick={handleRejectProposal}
-                    className="p-2 bg-gray-50 border border-gray-200 text-gray-400 rounded-lg hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-all active:scale-95"
+                    className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 rounded-lg hover:text-red-500 hover:border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all active:scale-95"
                     title="Discard suggestion"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -149,36 +165,68 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onToggleStatus, onDelete, onE
             </div>
           )}
 
-          <div className="mt-4 flex items-center gap-3">
+          {/* Suggested Subtasks UI */}
+          {suggestedSteps && (
+            <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl animate-in fade-in slide-in-from-top-2 duration-500">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1 bg-amber-100 dark:bg-amber-900/40 rounded">
+                    <svg className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.674a1 1 0 00.992-.883l.847-7.4a1 1 0 00-.992-1.117H8.816a1 1 0 00-.992 1.117l.847 7.4a1 1 0 00.992.883z" />
+                    </svg>
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest block">AI Blueprint</span>
+                </div>
+                <button 
+                  onClick={() => setSuggestedSteps(null)}
+                  className="text-amber-400 hover:text-amber-600 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <ul className="space-y-2">
+                {suggestedSteps.map((step, idx) => (
+                  <li key={idx} className="flex items-start gap-3 text-xs text-amber-900/80 dark:text-amber-100/70 font-medium group/step">
+                    <span className="mt-1.5 w-1.5 h-1.5 bg-amber-400 rounded-full flex-shrink-0 transition-transform group-hover/step:scale-125"></span>
+                    {step}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="mt-5 flex items-center gap-2">
             <button
               onClick={handleAIAction}
               disabled={isBlocked}
-              className={`text-[10px] uppercase tracking-wider font-bold flex items-center gap-2 px-3 py-1.5 rounded-full transition-all ${
+              className={`text-[10px] uppercase tracking-wider font-bold flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
                 isBlocked && activeAction !== 'enhance'
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
-                  : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 active:scale-95'
+                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                  : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 active:scale-95'
               }`}
             >
               {isEnhancing && activeAction === 'enhance' ? (
                 <>
-                  <svg className="animate-spin h-3 w-3 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Applying...
+                  Processing
                 </>
               ) : (
-                <>✨ Quick Enhance</>
+                <>✨ Enhance</>
               )}
             </button>
             
             <button
               onClick={handleMagicWand}
               disabled={isBlocked}
-              className={`p-1.5 rounded-full transition-all ${
+              className={`p-1.5 rounded-lg transition-all ${
                 isBlocked && activeAction !== 'magic'
-                  ? 'bg-gray-100 text-gray-300 cursor-not-allowed opacity-60'
-                  : 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100 active:scale-95'
+                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-700 cursor-not-allowed'
+                  : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 active:scale-95'
               }`}
               title="Magic Wand: Preview AI Enhancement"
             >
@@ -188,8 +236,35 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onToggleStatus, onDelete, onE
               </svg>
             </button>
 
-            <span className="text-[10px] text-gray-400 uppercase tracking-widest font-medium ml-auto">
-              Added {new Date(task.createdAt).toLocaleDateString()}
+            <button
+              onClick={handleSuggestSteps}
+              disabled={isBlocked && activeAction !== 'suggest'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-all ${
+                isSuggesting && activeAction === 'suggest'
+                  ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
+                  : suggestedSteps 
+                    ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200'
+                    : isBlocked
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-700 cursor-not-allowed'
+                      : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 active:scale-95'
+              }`}
+              title="Plan Steps: Get AI-suggested subtasks"
+            >
+              {isSuggesting && activeAction === 'suggest' ? (
+                <>
+                  <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Planning
+                </>
+              ) : (
+                <>💡 {suggestedSteps ? 'Hide' : 'Plan'}</>
+              )}
+            </button>
+
+            <span className="text-[10px] text-slate-400 dark:text-slate-600 uppercase tracking-widest font-bold ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+              {new Date(task.createdAt).toLocaleDateString()}
             </span>
           </div>
         </div>
